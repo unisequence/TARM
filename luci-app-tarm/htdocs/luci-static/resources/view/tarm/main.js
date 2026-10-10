@@ -4,8 +4,71 @@
 'require fs';
 'require ui';
 'require uci';
+'require poll';
 
 return view.extend({
+	formatBytes: function(value) {
+		var units = [ 'B', 'KiB', 'MiB', 'GiB', 'TiB' ];
+		var unit = 0;
+		value = Math.max(0, Number(value) || 0);
+		while (value >= 1024 && unit < units.length - 1) {
+			value /= 1024;
+			unit++;
+		}
+		return '%s %s'.format(unit ? value.toFixed(1) : value.toFixed(0), units[unit]);
+	},
+
+	refreshStatus: function() {
+		var self = this;
+		var card = document.querySelector('#view .tarm-status-card');
+		if (!card) return Promise.resolve();
+		return fs.exec('/usr/bin/tarm', [ 'status-brief' ]).then(function(result) {
+			if (result.code !== 0) throw new Error('status-brief failed');
+			var data = {};
+			(result.stdout || '').trim().split(/\s+/).forEach(function(field) {
+				var pos = field.indexOf('=');
+				if (pos > 0) data[field.slice(0, pos)] = field.slice(pos + 1);
+			});
+			var rx = Number(data.rx) || 0;
+			var tx = Number(data.tx) || 0;
+			var sampledAt = Date.now();
+			var rxRate = 0, txRate = 0;
+			if (self.lastTraffic && sampledAt > self.lastTraffic.at &&
+			    rx >= self.lastTraffic.rx && tx >= self.lastTraffic.tx) {
+				var seconds = (sampledAt - self.lastTraffic.at) / 1000;
+				rxRate = (rx - self.lastTraffic.rx) / seconds;
+				txRate = (tx - self.lastTraffic.tx) / seconds;
+			}
+			self.lastTraffic = { rx: rx, tx: tx, at: sampledAt };
+			var state, title, detail;
+			if (data.enabled !== '1') {
+				state = 'off'; title = _('Routing disabled'); detail = _('Enable routing to start the tunnel.');
+			} else if (data.link !== 'up') {
+				state = 'down'; title = _('Tunnel down'); detail = _('Check the tunnel configuration and WAN connection.');
+			} else if (!(Number(data.handshake) > 0)) {
+				state = 'waiting'; title = _('Waiting for handshake'); detail = _('Tunnel interface is up.');
+			} else {
+				var age = Math.max(0, Number(data.now) - Number(data.handshake));
+				var time = age < 60 ? '%ds'.format(age) :
+					age < 3600 ? '%dm'.format(Math.floor(age / 60)) :
+					age < 86400 ? '%dh'.format(Math.floor(age / 3600)) :
+					'%dd'.format(Math.floor(age / 86400));
+				state = age <= 180 ? 'up' : 'waiting';
+				title = age <= 180 ? _('Tunnel up') : _('Handshake stale');
+				detail = _('Last handshake %s ago').format(time);
+			}
+			card.setAttribute('data-state', state);
+			card.querySelector('.tarm-status-title').textContent = title;
+			card.querySelector('.tarm-status-detail').textContent = detail;
+			card.querySelector('.tarm-status-down').textContent = '%s · %s/s'.format(self.formatBytes(rx), self.formatBytes(rxRate));
+			card.querySelector('.tarm-status-up').textContent = '%s · %s/s'.format(self.formatBytes(tx), self.formatBytes(txRate));
+		}).catch(function() {
+			card.setAttribute('data-state', 'down');
+			card.querySelector('.tarm-status-title').textContent = _('Status unavailable');
+			card.querySelector('.tarm-status-detail').textContent = _('Try reloading the page.');
+		});
+	},
+
 	runCommand: function(command) {
 		return fs.exec('/usr/bin/tarm', [ command ]).then(function(result) {
 			if (result.code !== 0) {
@@ -55,7 +118,7 @@ return view.extend({
 			document.head.appendChild(E('link', {
 				'id': 'tarm-preset-style',
 				'rel': 'stylesheet',
-				'href': '/luci-static/resources/tarm/presets.css?v=0.6.0-r9'
+				'href': '/luci-static/resources/tarm/presets.css?v=0.7.0-r1'
 			}));
 		var m = new form.Map('tarm', _('TARM'),
 			_('Tiny Amnezia Routing Manager for small OpenWrt routers.'));
@@ -191,6 +254,25 @@ return view.extend({
 
 		self.decorateMap = function(node, state) {
 			if (!node) return node;
+			if (!node.querySelector('.tarm-status-card')) {
+				var heading = node.querySelector('h2');
+				var description = node.querySelector('.cbi-map-descr');
+				if (heading && description) {
+					var titleBlock = E('div', { 'class': 'tarm-heading-text' });
+					var statusCard = E('div', { 'class': 'tarm-status-card', 'data-state': 'waiting' }, [
+						E('div', { 'class': 'tarm-status-title' }, _('Checking tunnel…')),
+						E('div', { 'class': 'tarm-status-detail' }, _('Reading AmneziaWG status.')),
+						E('div', { 'class': 'tarm-status-traffic' }, [
+							E('div', [ E('span', _('Download')), E('strong', { 'class': 'tarm-status-down' }, '—') ]),
+							E('div', [ E('span', _('Upload')), E('strong', { 'class': 'tarm-status-up' }, '—') ])
+						])
+					]);
+					var header = E('div', { 'class': 'tarm-heading' }, [ titleBlock, statusCard ]);
+					node.insertBefore(header, heading);
+					titleBlock.appendChild(heading);
+					titleBlock.appendChild(description);
+				}
+			}
 			if (node.querySelector('.tarm-connection-details') && node.querySelector('.tarm-import-toolbar')) return node;
 			var connection = node.querySelector('.cbi-value[data-name="interface"]');
 			if (connection && !node.querySelector('.tarm-connection-details')) {
@@ -370,6 +452,11 @@ return view.extend({
 			}
 			return node;
 		};
-		return m.render().then(function(node) { return self.decorateMap(node); });
+		return m.render().then(function(node) {
+			self.decorateMap(node);
+			self.refreshStatus();
+			poll.add(function() { return self.refreshStatus(); }, 5);
+			return node;
+		});
 	}
 });

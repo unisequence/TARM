@@ -751,3 +751,23 @@ awg_route_status() {
 	ip link show dev "$AWG_IFACE" 2>&1 || true
 	nft list table inet awg_route 2>&1 || true
 }
+
+awg_route_status_brief() {
+	local link=down handshake=0 rx=0 tx=0 now flags
+	awg_route_load || return 1
+	flags="$(ip -o link show dev "$AWG_IFACE" 2>/dev/null |
+		sed -n 's/^[^<]*<\([^>]*\)>.*/,\1,/p')"
+	case "$flags" in *,UP,*)
+		link=up
+		handshake="$(awg show "$AWG_IFACE" latest-handshakes 2>/dev/null |
+			awk '{ if ($2 > latest) latest = $2 } END { printf "%.0f", latest + 0 }')"
+		set -- $(awg show "$AWG_IFACE" transfer 2>/dev/null |
+			awk '{ received += $2; sent += $3 } END { printf "%.0f %.0f", received, sent }')
+		rx="${1:-0}"
+		tx="${2:-0}"
+		;;
+	esac
+	now="$(date +%s)"
+	printf 'enabled=%s link=%s handshake=%s rx=%s tx=%s now=%s\n' \
+		"$AWG_ENABLED" "$link" "$handshake" "$rx" "$tx" "$now"
+}

@@ -4,11 +4,13 @@
 
 TARM is a small AmneziaWG client for OpenWrt with routing by domain, IP address, and CIDR subnet. Tunnel configuration and routing lists are managed in one LuCI app and CLI. It uses `dnsmasq-full`, nftables, and policy routing; it does not need a separate DNS proxy.
 
-Version 0.6.0 targets small routers such as the Xiaomi Mi Router 4C (MT7628, 16 MB flash, 64 MB RAM). The OpenWrt 24.10.8 and 25.12.5 packages have both been tested on a physical 4C. The 24.10.8 installation left 7.1 MiB free in the overlay.
+Version 0.7.0 targets small routers such as the Xiaomi Mi Router 4C (MT7628, 16 MB flash, 64 MB RAM). Installation, AmneziaWG tunneling, and LAN routing have been tested on a physical 4C with OpenWrt 24.10.8 and 25.12.5. The 0.7.0 installer and new status card were tested on 24.10.8. That installation left 7.1 MiB free in the overlay.
 
 ## Interface
 
 These screenshots were taken on a Xiaomi Mi Router 4C running OpenWrt 24.10.8. The tunnel configuration is collapsed.
+
+The card on the right shows the interface state, last handshake, and AWG traffic. Download and upload rates are calculated from tunnel byte counters sampled every five seconds; they are not WAN line-speed measurements.
 
 ![TARM overview with built-in VPN groups and routing lists](docs/screenshots/tarm-overview.png)
 
@@ -36,6 +38,14 @@ On the single-core MT7628, this avoids some worker scheduling for light incoming
 
 ## Installation
 
+The one-shot installer supports official OpenWrt 24.10.8 and 25.12.5 on `ramips/mt76x8`:
+
+```sh
+uclient-fetch -O /tmp/tarm-install.sh https://github.com/unisequence/TARM/releases/download/v0.7.0/install.sh && sh /tmp/tarm-install.sh
+```
+
+It checks the OpenWrt version, architecture, and full kernel ABI, downloads four packages, verifies their SHA-256 checksums, and installs them. On 24.10.8 it replaces the base `dnsmasq` with `dnsmasq-full` when needed. Existing TARM settings and tunnel configuration are preserved. Other firmware versions are rejected.
+
 You need `tarm`, `luci-app-tarm`, `amneziawg-tools`, and the patched `kmod-amneziawg`. The kmod's full `kernel` dependency must match your running OpenWrt kernel ABI. A custom firmware image with a different ABI needs a kmod built from the same OpenWrt tree.
 
 Packages for official OpenWrt 24.10.8 `ramips/mt76x8` are in [`dist/openwrt-24.10.8-ramips-mt76x8/`](dist/openwrt-24.10.8-ramips-mt76x8/) (`.ipk`, `opkg`). Packages for official OpenWrt 25.12.5 on the same target are in [`dist/openwrt-25.12.5-ramips-mt76x8/`](dist/openwrt-25.12.5-ramips-mt76x8/) (`.apk`, `apk`). Check the complete kernel ABI, not just the OpenWrt version number.
@@ -45,7 +55,7 @@ Check free overlay space, copy all four matching packages to `/tmp` on the route
 ```sh
 df -h /overlay
 apk update
-apk add --allow-untrusted /tmp/kmod-amneziawg-6.12.94.3.1.20260812-r3.apk /tmp/amneziawg-tools-3.1.20260812-r1.apk /tmp/tarm-0.6.0-r8.apk /tmp/luci-app-tarm-0.6.0-r10.apk
+apk add --allow-untrusted /tmp/kmod-amneziawg-6.12.94.3.1.20260812-r3.apk /tmp/amneziawg-tools-3.1.20260812-r1.apk /tmp/tarm-0.7.0-r1.apk /tmp/luci-app-tarm-0.7.0-r1.apk
 ```
 
 On a clean 24.10.8 image, the base `dnsmasq` conflicts with the required `dnsmasq-full` because both own the same files. Replace it during installation:
@@ -56,7 +66,7 @@ opkg remove dnsmasq
 opkg install /tmp/kmod-amneziawg_*.ipk /tmp/amneziawg-tools_*.ipk /tmp/tarm_*.ipk /tmp/luci-app-tarm_*.ipk
 ```
 
-There is no automatic installer yet. Verify the ABI and choose the package set manually.
+For a manual install, verify the ABI and choose the matching package set.
 
 To migrate an existing `awg-route` setup, copy `/etc/config/awg-route` to `/etc/config/tarm` and `/etc/awg-route` to `/etc/tarm`. Update any paths to custom list files in the new config. Install TARM, run `tarm check whatsapp.com` and `tarm apply`, then remove the old packages with `apk del --no-scripts --no-commit-hooks luci-app-awg-route awg-route`. Remove old cron entries and `awg-route.nft` / `awg-route.conf` files, then run `tarm apply` again. Keep the old configuration as a backup. The internal nft table is still named `awg_route`, allowing DNS addresses already in that table to survive the package rename.
 

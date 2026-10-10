@@ -1,3 +1,51 @@
+.tarm-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin-bottom: 10px;
+}
+
+.tarm-heading-text {
+	min-width: 230px;
+	flex: 1;
+}
+
+.tarm-heading-text > h2 {
+	margin-top: 0;
+}
+
+.tarm-status-card {
+	box-sizing: border-box;
+	width: min(100%, 350px);
+	padding: 12px 14px;
+	border: 1px solid rgba(127, 127, 127, .3);
+	border-left: 3px solid #d99a28;
+	border-radius: 4px;
+}
+
+.tarm-status-card[data-state="up"] { border-left-color: #21a667; }
+.tarm-status-card[data-state="down"] { border-left-color: #d44f4f; }
+.tarm-status-card[data-state="off"] { border-left-color: #888; }
+
+.tarm-status-title { font-weight: 700; }
+.tarm-status-detail { opacity: .78; margin-top: 3px; font-size: .9em; }
+
+.tarm-status-traffic {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+	margin-top: 10px;
+	padding-top: 9px;
+	border-top: 1px solid rgba(127, 127, 127, .2);
+}
+
+.tarm-status-traffic span,
+.tarm-status-traffic strong { display: block; }
+.tarm-status-traffic span { opacity: .75; font-size: .85em; }
+.tarm-status-traffic strong { margin-top: 3px; font-size: .9em; }
+
 .cbi-section-node:has(> .cbi-value[data-name^="preset_"]) {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-tarm
-PKG_VERSION:=0.6.0
-PKG_RELEASE:=10
+PKG_VERSION:=0.7.0
+PKG_RELEASE:=1
 PKG_LICENSE:=MIT
 
 include $(INCLUDE_DIR)/package.mk

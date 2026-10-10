@@ -23,5 +23,6 @@ case "${1:-}" in
 	stop) awg_route_stop ;;
 	check) awg_route_check "${2:-}" ;;
 	status) awg_route_status ;;
-	*) echo 'usage: tarm {apply|import FILE|import-list NAME [append|replace]|catalog-add NAME|update|tunnel-up|tunnel-down|routes|stop|status|check DOMAIN}' >&2; exit 2 ;;
+	status-brief) awg_route_status_brief ;;
+	*) echo 'usage: tarm {apply|import FILE|import-list NAME [append|replace]|catalog-add NAME|update|tunnel-up|tunnel-down|routes|stop|status|status-brief|check DOMAIN}' >&2; exit 2 ;;
 esac
