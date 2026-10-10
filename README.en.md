@@ -115,6 +115,12 @@ config list 'streaming'
 
 Subscriptions accept one domain, address, or subnet per line; `#` starts a comment, and a leading dot is allowed. Legacy `vpn_domain`, `direct_domain`, `vpn_file`, and `direct_file` fields in the `main` section still work, but LuCI creates named lists for new entries.
 
+## Builds and releases
+
+[GitHub Actions](.github/workflows/quality.yml) runs shell/JavaScript checks and unit tests on every push and pull request. It then builds packages in the official OpenWrt 24.10.8 and 25.12.5 SDKs for `ramips/mt76x8`. SDK archives are checked against pinned SHA-256 hashes. The `amneziawg-tools` package recipe comes from a pinned [awg-openwrt](https://github.com/Slava-Shchipunov/awg-openwrt) commit. Each package set gets its own checksum file.
+
+A `vX.Y.Z` tag publishes a release only after both builds pass. The tag must match the package and installer versions. CI checks the build and release assets; tunnel and routing behavior on a router is tested separately.
+
 ## Testing and limitations
 
 QEMU tests cover installation, reboot, subscriptions, direct exceptions, DNS population of nft sets, and routing with the interface up or down. Two virtual OpenWrt 25.12.5 systems running AmneziaWG 3.1 established a handshake and carried ICMP, including obfuscation parameters. On a physical Xiaomi 4C with 25.12.5, we tested LuCI saves, invalid-config errors, and the tunnel. On 24.10.8, we tested the handshake, ICMP through `awg0`, an HTTP 200 response from `telegram.org` via a LAN client with increasing AWG counters, and tunnel startup after reboot. The restored Wi-Fi access point came up; a separate Wi-Fi client was not tested on 24.10.8.
