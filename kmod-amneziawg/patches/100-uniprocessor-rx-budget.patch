@@ -1,0 +1,46 @@
+diff --git a/src/receive.c b/src/receive.c
+index 96cf044..d8d50b0 100644
+--- a/src/receive.c
++++ b/src/receive.c
+@@ -21,6 +21,13 @@
+ #include <linux/udp.h>
+ #include <net/ip_tunnels.h>
+ 
++#ifndef CONFIG_SMP
++/* Limit work in the receive softirq to avoid starving other LAN traffic. */
++static unsigned long inline_rx_jiffy;
++static unsigned int inline_rx_count;
++#define INLINE_RX_PER_JIFFY 8
++#endif
++
+ /* Must be called with bh disabled. */
+ static void update_rx_stats(struct wg_peer *peer, size_t len)
+ {
+@@ -636,6 +643,27 @@ static void wg_packet_consume_data(struct wg_device *wg, struct sk_buff *skb)
+ 	if (unlikely(READ_ONCE(peer->is_dead)))
+ 		goto err;
+ 
++#ifndef CONFIG_SMP
++	/* Avoid the device ring and crypto workqueue on one CPU. Keep the
++	 * per-peer queue so NAPI still delivers packets in receive order.
++	 */
++	if (inline_rx_jiffy != jiffies) {
++		inline_rx_jiffy = jiffies;
++		inline_rx_count = 0;
++	}
++	if (inline_rx_count < INLINE_RX_PER_JIFFY) {
++		++inline_rx_count;
++		atomic_set_release(&PACKET_CB(skb)->state, PACKET_STATE_UNCRYPTED);
++		if (unlikely(!wg_prev_queue_enqueue(&peer->rx_queue, skb)))
++			goto err;
++		rcu_read_unlock_bh();
++		wg_queue_enqueue_per_peer_rx(skb,
++			likely(decrypt_packet(skb, PACKET_CB(skb)->keypair)) ?
++				PACKET_STATE_CRYPTED : PACKET_STATE_DEAD);
++		return;
++	}
++#endif
++
+ 	ret = wg_queue_enqueue_per_device_and_peer(&wg->decrypt_queue, &peer->rx_queue, skb,
+ 						   wg->packet_crypt_wq);
+ 	if (unlikely(ret == -EPIPE))

@@ -1,0 +1,25 @@
+{
+	"luci-app-tarm": {
+		"description": "Manage TARM",
+		"read": {
+			"uci": [ "tarm" ],
+			"file": {
+				"/usr/bin/tarm status": [ "exec" ]
+			}
+		},
+		"write": {
+			"uci": [ "tarm" ],
+			"file": {
+				"/etc/tarm/import.txt": [ "write" ],
+				"/etc/tarm/tunnel.upload": [ "write" ],
+				"/etc/tarm/tunnel.conf": [ "read" ],
+				"/usr/bin/tarm import /etc/tarm/tunnel.upload": [ "exec" ],
+				"/usr/bin/tarm check *": [ "exec" ],
+				"/usr/bin/tarm apply": [ "exec" ],
+				"/usr/bin/tarm import-list *": [ "exec" ],
+				"/usr/bin/tarm catalog-add *": [ "exec" ],
+				"/usr/bin/tarm update": [ "exec" ]
+			}
+		}
+	}
+}

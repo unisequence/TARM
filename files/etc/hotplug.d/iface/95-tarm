@@ -1,0 +1,15 @@
+#!/bin/sh
+
+[ "$(uci -q get tarm.main.enabled)" = 1 ] || exit 0
+awg_iface="$(uci -q get tarm.main.interface)"
+wan_iface="$(uci -q get tarm.main.wan_interface)"
+[ -n "$wan_iface" ] || wan_iface=wan
+if [ "$INTERFACE" = "$wan_iface" ] && [ "$ACTION" = ifup ]; then
+	/usr/bin/tarm wan-up
+	exit $?
+fi
+[ "$INTERFACE" = "$awg_iface" ] || exit 0
+case "$ACTION" in
+	ifup) /usr/bin/tarm routes ;;
+	ifdown) AWG_ROUTE_FORCE_DOWN=1 /usr/bin/tarm routes ;;
+esac

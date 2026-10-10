@@ -1,0 +1,9 @@
+#!/bin/sh
+
+line='17 4 * * * /usr/bin/tarm update >/dev/null 2>&1'
+mkdir -p /etc/crontabs
+touch /etc/crontabs/root
+grep -Fqx "$line" /etc/crontabs/root || printf '%s\n' "$line" >> /etc/crontabs/root
+chmod 600 /etc/crontabs/root
+/etc/init.d/cron restart >/dev/null 2>&1 || true
+exit 0

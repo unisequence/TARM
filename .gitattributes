@@ -1,0 +1,2 @@
+# Patch files contain diff context lines with their original indentation.
+*.patch whitespace=-blank-at-eol,-space-before-tab

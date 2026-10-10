@@ -1,0 +1,21 @@
+#!/bin/sh /etc/rc.common
+
+START=95
+STOP=15
+USE_PROCD=1
+
+start_service() {
+	/usr/bin/tarm apply
+}
+
+stop_service() {
+	/usr/bin/tarm stop
+}
+
+reload_service() {
+	/usr/bin/tarm apply
+}
+
+service_triggers() {
+	procd_add_reload_trigger 'tarm' 'network' 'firewall'
+}

@@ -1,0 +1,14 @@
+# Keep only the two tested package sets. Historical builds stay local.
+/dist/*
+!/dist/openwrt-24.10.8-ramips-mt76x8/
+!/dist/openwrt-25.12.5-ramips-mt76x8/
+/device-test/
+/sandbox/
+
+# Historical screenshot from the awg-route prototype
+/luci-screenshot.png
+
+# Editor and Python byproducts
+__pycache__/
+*.pyc
+.DS_Store

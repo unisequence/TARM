@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+. "${AWG_ROUTE_CORE:-/usr/share/tarm/core.sh}"
+
+case "${1:-}" in
+	apply|import|import-list|catalog-add|update|tunnel-up|tunnel-down|routes|wan-up|stop|check)
+		mkdir -p "$AWG_ROUTE_STATE"
+		exec 9>"$AWG_ROUTE_STATE/lock"
+		flock 9 || { awg_route_err 'could not acquire operation lock'; exit 1; }
+		;;
+esac
+
+case "${1:-}" in
+	apply) awg_route_apply ;;
+	import) awg_route_import "${2:-}" ;;
+	import-list) awg_route_import_list "${2:-}" "${3:-replace}" ;;
+	catalog-add) awg_route_catalog_add "${2:-}" ;;
+	update) awg_route_update ;;
+	tunnel-up|wan-up) awg_route_load && awg_route_tunnel_up && awg_route_routes ;;
+	tunnel-down) awg_route_load && awg_route_tunnel_down ;;
+	routes) awg_route_load && awg_route_routes ;;
+	stop) awg_route_stop ;;
+	check) awg_route_check "${2:-}" ;;
+	status) awg_route_status ;;
+	*) echo 'usage: tarm {apply|import FILE|import-list NAME [append|replace]|catalog-add NAME|update|tunnel-up|tunnel-down|routes|stop|status|check DOMAIN}' >&2; exit 2 ;;
+esac

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Small routers without an RTC can start AmneziaWG before their clock is valid.
+# Retry the tunnel once ntpd has synchronized if no handshake has succeeded.
+[ "$ACTION" = stratum ] || exit 0
+[ "$(uci -q get tarm.main.enabled)" = 1 ] || exit 0
+
+awg_iface="$(uci -q get tarm.main.interface)"
+[ -n "$awg_iface" ] || awg_iface=awg0
+
+last_handshake="$(awg show "$awg_iface" latest-handshakes 2>/dev/null | awk 'NR == 1 { print $2 }')"
+case "$last_handshake" in
+	''|0) /usr/bin/tarm wan-up ;;
+esac
