@@ -25,6 +25,7 @@ jobs:
           node --check luci-app-tarm/htdocs/luci-static/resources/view/tarm/main.js
           sh tests/core.sh
           sh tests/subscription-fail-closed.sh
+          python3 tests/installer-abi.py
 
   openwrt-packages:
     name: OpenWrt ${{ matrix.release }} ramips/${{ matrix.subtarget }}

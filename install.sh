@@ -59,7 +59,7 @@ command -v sha256sum >/dev/null 2>&1 || fail 'sha256sum is missing'
 if [ "$manager" = opkg ]; then
 	kernel_installed="$(opkg status kernel | sed -n 's/^Version: //p' | head -n 1)"
 else
-	kernel_installed="$(apk info -v kernel | sed -n 's/^kernel-//p' | head -n 1)"
+	kernel_installed="$(apk list --installed kernel | sed -n 's/^kernel-\([^ ]*\) .*/\1/p' | head -n 1)"
 fi
 [ "$kernel_installed" = "$kernel_expected" ] || fail "kernel ABI mismatch: expected $kernel_expected, found ${kernel_installed:-none}"
 
