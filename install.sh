@@ -1,43 +1,55 @@
 #!/bin/sh
-# Install the tested TARM package set on an official Xiaomi Mi Router 4C image.
+# Install the TARM package set matching an official OpenWrt image.
 set -eu
 umask 077
 
-tag='v0.7.0'
+tag='v0.8.0'
 base_url="${TARM_RELEASE_BASE_URL:-https://github.com/unisequence/TARM/releases/download/$tag}"
 release_file="${TARM_RELEASE_FILE:-/etc/openwrt_release}"
 
 fail() { echo "tarm installer: $*" >&2; exit 1; }
 [ -r "$release_file" ] || fail 'OpenWrt release information is missing'
 . "$release_file"
-[ "${DISTRIB_TARGET:-}" = 'ramips/mt76x8' ] || fail 'only ramips/mt76x8 is supported by this release'
+case "${DISTRIB_TARGET:-}" in
+	ramips/mt76x8|ramips/mt7621) ;;
+	*) fail 'only ramips/mt76x8 and ramips/mt7621 are supported by this release' ;;
+esac
 [ "${DISTRIB_ARCH:-}" = 'mipsel_24kc' ] || fail 'unexpected package architecture'
 
-case "${DISTRIB_RELEASE:-}" in
-	24.10.8)
+bundle="openwrt-${DISTRIB_RELEASE:-unknown}-${DISTRIB_TARGET%%/*}-${DISTRIB_TARGET##*/}"
+case "${DISTRIB_RELEASE:-}:${DISTRIB_TARGET:-}" in
+	24.10.8:ramips/mt76x8)
 		manager=opkg
 		kernel_expected='6.6.144~4ca73159125334b180ac4bba6dc45839-r1'
-		kernel_running='6.6.144'
-		bundle='openwrt-24.10.8-ramips-mt76x8'
-		set -- \
-			'kmod-amneziawg_6.6.144.3.1.20260812-r3_mipsel_24kc.ipk' \
-			'amneziawg-tools_3.1.20260812-r1_mipsel_24kc.ipk' \
-			'tarm_0.7.0-r1_all.ipk' \
-			'luci-app-tarm_0.7.0-r1_all.ipk'
-		;;
-	25.12.5)
+		kernel_running='6.6.144' ;;
+	24.10.8:ramips/mt7621)
+		manager=opkg
+		kernel_expected='6.6.144~f31f6f85a36836e510d64a18a9a5f1bf-r1'
+		kernel_running='6.6.144' ;;
+	25.12.5:ramips/mt76x8)
 		manager=apk
 		kernel_expected='6.12.94~2fe195f1cc4f533c70c3c6ea555ac460-r1'
-		kernel_running='6.12.94'
-		bundle='openwrt-25.12.5-ramips-mt76x8'
-		set -- \
-			'kmod-amneziawg-6.12.94.3.1.20260812-r3.apk' \
-			'amneziawg-tools-3.1.20260812-r1.apk' \
-			'tarm-0.7.0-r1.apk' \
-			'luci-app-tarm-0.7.0-r1.apk'
-		;;
-	*) fail 'this OpenWrt version has no tested package set' ;;
+		kernel_running='6.12.94' ;;
+	25.12.5:ramips/mt7621)
+		manager=apk
+		kernel_expected='6.12.94~35fb64ea09ee15c2f267bd5436b7f178-r1'
+		kernel_running='6.12.94' ;;
+	*) fail 'this OpenWrt version and target have no tested package set' ;;
 esac
+
+if [ "$manager" = opkg ]; then
+	set -- \
+		'kmod-amneziawg_6.6.144.3.1.20260812-r3_mipsel_24kc.ipk' \
+		'amneziawg-tools_3.1.20260812-r1_mipsel_24kc.ipk' \
+		'tarm_0.8.0-r1_all.ipk' \
+		'luci-app-tarm_0.8.0-r1_all.ipk'
+else
+	set -- \
+		'kmod-amneziawg-6.12.94.3.1.20260812-r3.apk' \
+		'amneziawg-tools-3.1.20260812-r1.apk' \
+		'tarm-0.8.0-r1.apk' \
+		'luci-app-tarm-0.8.0-r1.apk'
+fi
 
 command -v "$manager" >/dev/null 2>&1 || fail "$manager is missing"
 command -v uclient-fetch >/dev/null 2>&1 || fail 'uclient-fetch is missing'
@@ -65,11 +77,15 @@ fetch() {
 	fail "download failed: $name"
 }
 
-manifest="SHA256SUMS-$bundle"
+archive="$bundle.tar.gz"
 echo "Downloading $bundle from $base_url"
-fetch "$manifest"
-for package in "$@"; do fetch "$package"; done
+fetch "$archive"
+tar -xzf "$work/$archive" -C "$work" || fail 'could not unpack package bundle'
+manifest="SHA256SUMS-$bundle"
 (cd "$work" && sha256sum -c "$manifest") || fail 'package checksum mismatch'
+for package in "$@"; do
+	[ -f "$work/$package" ] || fail "missing package: $package"
+done
 
 if [ "$manager" = opkg ]; then
 	opkg update || fail 'opkg update failed; no packages were changed'

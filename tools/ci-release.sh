@@ -17,19 +17,19 @@ grep -Fqx "PKG_VERSION:=$version" "$repo_dir/luci-app-tarm/Makefile" || {
 mkdir -p "$CI_RELEASE_DIR"
 for bundle in \
 	openwrt-24.10.8-ramips-mt76x8 \
-	openwrt-25.12.5-ramips-mt76x8; do
+	openwrt-25.12.5-ramips-mt76x8 \
+	openwrt-24.10.8-ramips-mt7621 \
+	openwrt-25.12.5-ramips-mt7621; do
 	source_dir="$CI_ARTIFACT_DIR/$bundle"
 	[ -d "$source_dir" ] || { echo "missing artifact: $bundle" >&2; exit 1; }
 	(cd "$source_dir" && sha256sum -c "SHA256SUMS-$bundle")
-	cp "$source_dir"/* "$CI_RELEASE_DIR/"
+	(cd "$source_dir" && tar -czf "$CI_RELEASE_DIR/$bundle.tar.gz" -- .)
 done
 
 cp "$repo_dir/install.sh" "$CI_RELEASE_DIR/install.sh"
-[ "$(find "$CI_RELEASE_DIR" -maxdepth 1 -type f | wc -l)" -eq 11 ] || {
+[ "$(find "$CI_RELEASE_DIR" -maxdepth 1 -type f | wc -l)" -eq 5 ] || {
 	echo 'unexpected release asset count' >&2; exit 1;
 }
-for asset in "$CI_RELEASE_DIR"/*.ipk "$CI_RELEASE_DIR"/*.apk; do
-	grep -Fq "$(basename "$asset")" "$repo_dir/install.sh" || {
-		echo "installer does not reference $(basename "$asset")" >&2; exit 1;
-	}
-done
+grep -Fqx 'archive="$bundle.tar.gz"' "$repo_dir/install.sh" || {
+	echo 'installer does not select bundle archives' >&2; exit 1;
+}

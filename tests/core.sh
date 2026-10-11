@@ -200,11 +200,32 @@ for dns in '' 1.1.1.1 2001:db8::1; do
 	case "$dns" in
 		'') ! grep -q 'priority 16999' "$test_dir/ip-cleanup" ;;
 		1.1.1.1)
+			grep -qx -- '-4 rule del priority 16999 iif lo to 1.1.1.1 table 700' "$test_dir/ip-cleanup"
 			grep -qx -- '-4 rule del priority 16999 to 1.1.1.1 table 700' "$test_dir/ip-cleanup"
 			! grep -q -- '-6 rule del priority 16999' "$test_dir/ip-cleanup" ;;
 		*)
+			grep -qx -- '-6 rule del priority 16999 iif lo to 2001:db8::1 table 700' "$test_dir/ip-cleanup"
 			grep -qx -- '-6 rule del priority 16999 to 2001:db8::1 table 700' "$test_dir/ip-cleanup"
 			! grep -q -- '-4 rule del priority 16999' "$test_dir/ip-cleanup" ;;
+	esac
+done
+
+# A VPN DNS route is needed by local dnsmasq queries, but must not catch
+# unmarked packets sent directly to the same resolver by LAN clients.
+ip() {
+	case "$*" in
+		'-4 rule show'|'-6 rule show') printf '17000: from all fwmark 0x700000/0x700000 lookup 700\n' ;;
+		*) printf '%s\n' "$*" >> "$test_dir/ip-routes" ;;
+	esac
+}
+AWG_ROUTE_FORCE_DOWN=1
+for dns in 1.1.1.1 2001:db8::1; do
+	AWG_DNS_SERVER="$dns"
+	: > "$test_dir/ip-routes"
+	awg_route_routes
+	case "$dns" in
+		1.1.1.1) grep -qx -- '-4 rule add priority 16999 iif lo to 1.1.1.1 table 700' "$test_dir/ip-routes" ;;
+		*) grep -qx -- '-6 rule add priority 16999 iif lo to 2001:db8::1 table 700' "$test_dir/ip-routes" ;;
 	esac
 done
 

@@ -27,40 +27,52 @@ jobs:
           sh tests/subscription-fail-closed.sh
 
   openwrt-packages:
-    name: OpenWrt ${{ matrix.release }} ramips/mt76x8
+    name: OpenWrt ${{ matrix.release }} ramips/${{ matrix.subtarget }}
     needs: static
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
           - release: 24.10.8
+            subtarget: mt76x8
             format: ipk
             sdk_archive: openwrt-sdk-24.10.8-ramips-mt76x8_gcc-13.3.0_musl.Linux-x86_64.tar.zst
             sdk_sha256: 14e11075658b7186441ac853a91d6ba150cb7fadf948f7d4ce0946109322f8d3
           - release: 25.12.5
+            subtarget: mt76x8
             format: apk
             sdk_archive: openwrt-sdk-25.12.5-ramips-mt76x8_gcc-14.3.0_musl.Linux-x86_64.tar.zst
             sdk_sha256: b44636e0a53f0d769cbce64edb9ca3831e1a9ecdc8c53a5caf128884be6c490e
+          - release: 24.10.8
+            subtarget: mt7621
+            format: ipk
+            sdk_archive: openwrt-sdk-24.10.8-ramips-mt7621_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_sha256: 9dd11b0517883b016ad7684f5c408a3483eec5b2455b2ffe004c9edd84063e45
+          - release: 25.12.5
+            subtarget: mt7621
+            format: apk
+            sdk_archive: openwrt-sdk-25.12.5-ramips-mt7621_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+            sdk_sha256: 9962084f4131610e90e48bc864c6ceade0b238f15f335de5f672910532b20e9c
     steps:
       - uses: actions/checkout@v4
       - name: Build and verify packages
         env:
           OPENWRT_RELEASE: ${{ matrix.release }}
           OPENWRT_TARGET: ramips
-          OPENWRT_SUBTARGET: mt76x8
+          OPENWRT_SUBTARGET: ${{ matrix.subtarget }}
           PACKAGE_FORMAT: ${{ matrix.format }}
           SDK_ARCHIVE: ${{ matrix.sdk_archive }}
           SDK_SHA256: ${{ matrix.sdk_sha256 }}
           CI_WORK_DIR: ${{ runner.temp }}/tarm-sdk
-          CI_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/openwrt-${{ matrix.release }}-ramips-mt76x8
+          CI_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/openwrt-${{ matrix.release }}-ramips-${{ matrix.subtarget }}
         run: sh tools/ci-build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: openwrt-${{ matrix.release }}-ramips-mt76x8
+          name: openwrt-${{ matrix.release }}-ramips-${{ matrix.subtarget }}
           if-no-files-found: error
-          path: ci-artifacts/openwrt-${{ matrix.release }}-ramips-mt76x8/*
+          path: ci-artifacts/openwrt-${{ matrix.release }}-ramips-${{ matrix.subtarget }}/*
 
   publish-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -87,6 +99,14 @@ jobs:
         with:
           name: openwrt-25.12.5-ramips-mt76x8
           path: ci-artifacts/openwrt-25.12.5-ramips-mt76x8
+      - uses: actions/download-artifact@v4
+        with:
+          name: openwrt-24.10.8-ramips-mt7621
+          path: ci-artifacts/openwrt-24.10.8-ramips-mt7621
+      - uses: actions/download-artifact@v4
+        with:
+          name: openwrt-25.12.5-ramips-mt7621
+          path: ci-artifacts/openwrt-25.12.5-ramips-mt7621
       - name: Verify release assets
         env:
           RELEASE_TAG: ${{ github.ref_name }}

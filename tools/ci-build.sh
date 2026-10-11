@@ -13,7 +13,7 @@ set -eu
 : "${CI_OUTPUT_DIR:?}"
 
 case "$OPENWRT_RELEASE:$OPENWRT_TARGET:$OPENWRT_SUBTARGET:$PACKAGE_FORMAT" in
-	24.10.8:ramips:mt76x8:ipk|25.12.5:ramips:mt76x8:apk) ;;
+	24.10.8:ramips:mt76x8:ipk|25.12.5:ramips:mt76x8:apk|24.10.8:ramips:mt7621:ipk|25.12.5:ramips:mt7621:apk) ;;
 	*) echo 'unsupported CI package set' >&2; exit 1 ;;
 esac
 

@@ -323,8 +323,8 @@ awg_route_routes() {
 		if [ -n "$AWG_DNS_SERVER" ]; then
 			case "$family:$AWG_DNS_SERVER" in
 				-4:*:*) ;;
-				-6:*:*) dns_expected="to $AWG_DNS_SERVER lookup $AWG_TABLE" ;;
-				-4:*) dns_expected="to $AWG_DNS_SERVER lookup $AWG_TABLE" ;;
+				-6:*:*) dns_expected="to $AWG_DNS_SERVER iif lo lookup $AWG_TABLE" ;;
+				-4:*) dns_expected="to $AWG_DNS_SERVER iif lo lookup $AWG_TABLE" ;;
 			esac
 		fi
 		if printf '%s\n' "$rules" | grep -q '^16999:'; then
@@ -333,7 +333,10 @@ awg_route_routes() {
 				return 1
 			}
 		elif [ -n "$dns_expected" ]; then
-			ip "$family" rule add priority 16999 to "$AWG_DNS_SERVER" table "$AWG_TABLE" || return 1
+			# Only dnsmasq's locally generated queries need this route. A
+			# destination-only rule also catches unmarked LAN packets and sends
+			# them to AWG, where fw4 rejects them.
+			ip "$family" rule add priority 16999 iif lo to "$AWG_DNS_SERVER" table "$AWG_TABLE" || return 1
 		fi
 	done
 	if [ "${AWG_ROUTE_FORCE_DOWN:-0}" != 1 ] && ip link show dev "$AWG_IFACE" >/dev/null 2>&1; then
@@ -712,6 +715,8 @@ awg_route_cleanup_policy() {
 			case "$family:$AWG_DNS_SERVER" in
 				-4:*:*) ;;
 				-6:*:*|-4:*)
+					ip "$family" rule del priority 16999 iif lo to "$AWG_DNS_SERVER" table "$AWG_TABLE" 2>/dev/null || true
+					# Also clean up the destination-only rule from older installs.
 					ip "$family" rule del priority 16999 to "$AWG_DNS_SERVER" table "$AWG_TABLE" 2>/dev/null || true ;;
 			esac
 		fi
